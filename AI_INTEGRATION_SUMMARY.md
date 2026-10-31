@@ -2,7 +2,8 @@
 
 ## 1. Live Backend Endpoints (on `feature/ocr-whisperflow`)
 - `POST /api/bills/upload`: Multi-part bill upload with OCR fallback to `MOCK_EXTRACTION`.
-- `POST /api/bills/:id/corrections/voice`: WhisperFlow voice command parser (handles quantity changes, price adjustments, and customer name changes with auto-recalculation).
+- `POST /api/bills/:id/corrections/voice`: WhisperFlow voice command parser (handles quantity changes, price adjustments, and customer name changes with auto-recalculation across Hindi/Punjabi vernacular).
+- `POST /api/bills/:id/corrections/voice-file`: Mobile audio-upload fallback (`.wav`, `.webm`, `.m4a`) that forwards to `WHISPER_API_URL` when configured and otherwise uses the filename or supplied fallback transcript.
 - `POST /api/bills/:id/corrections`: Manual field and line-item corrections.
 - `GET /api/bills/:id/readback`: Spoken TTS read-back summary generator.
 - `GET /api/vocabulary` & `POST /api/vocabulary`: Vernacular shorthand store (e.g., chini -> Sugar, peti -> Box).

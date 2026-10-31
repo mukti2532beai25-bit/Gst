@@ -18,6 +18,7 @@ import VocabularyLearnCard from './components/VocabularyLearnCard';
 import WhisperFlowModal from './components/WhisperFlowModal';
 import {
   DEMO_BILL,
+  DEMO_BILL_SVG_DATA_URI,
   cloneBill,
   sampleBillFile
 } from './components/demoFixtures';
@@ -223,7 +224,7 @@ export default function App() {
 
     try {
       const form = new FormData();
-      form.append('bill', sampleBillFile(), 'demo-bill-001.png');
+      form.append('bill', sampleBillFile(), 'demo-bill-001.svg');
       form.append('billId', 'demo-bill-001');
       form.append('language', 'pa');
 
@@ -434,6 +435,30 @@ export default function App() {
                 {hasMismatch ? 'Review totals' : 'Totals reconciled'}
               </span>
             </div>
+
+            {bill.billId === 'demo-bill-001' && (
+              <div className="border-b border-slate-800 bg-slate-950/40 px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <img
+                    src={DEMO_BILL_SVG_DATA_URI}
+                    alt="Bundled sample kirana bill B-102 for Ravi Kumar"
+                    className="mx-auto h-48 w-full max-w-sm rounded-xl border border-slate-700 bg-white object-contain p-1 sm:mx-0 sm:h-36 sm:w-56"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-300">
+                      Bundled sample bill
+                    </p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      Chini (Sugar) · 5 kg @ ₹42 = ₹210
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Grand total ₹336 is intentionally inconsistent so the review
+                      warning is visible.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 border-b border-slate-800 px-4 py-4 sm:grid-cols-4 sm:px-5">
               {[

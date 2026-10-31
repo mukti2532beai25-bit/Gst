@@ -22,34 +22,74 @@ const NUMBER_WORDS: Record<string, number> = {
   one: 1,
   do: 2,
   two: 2,
-  teen: 3,
   tin: 3,
+  teen: 3,
   three: 3,
   char: 4,
   chaar: 4,
   four: 4,
+  panj: 5,
+  punj: 5,
   paanch: 5,
   panch: 5,
   five: 5,
   chhe: 6,
   che: 6,
   six: 6,
-  saat: 7,
   sat: 7,
+  saat: 7,
   seven: 7,
-  aath: 8,
   ath: 8,
+  aath: 8,
   eight: 8,
   nau: 9,
   nine: 9,
   das: 10,
-  ten: 10
+  ten: 10,
+  // Gurmukhi
+  ਇੱਕ: 1,
+  ਦੋ: 2,
+  ਤਿੰਨ: 3,
+  ਚਾਰ: 4,
+  ਪੰਜ: 5,
+  ਛੇ: 6,
+  ਸੱਤ: 7,
+  ਅੱਠ: 8,
+  ਨੌਂ: 9,
+  ਦਸ: 10,
+  // Devanagari
+  एक: 1,
+  दो: 2,
+  तीन: 3,
+  चार: 4,
+  पांच: 5,
+  पाँच: 5,
+  छह: 6,
+  सात: 7,
+  आठ: 8,
+  नौ: 9,
+  दस: 10
 };
 
-const QUANTITY_HINT = /(quantity|qty|matra|kilo|kilogram|kg|gram|litre|liter|ltr|peti|box|piece|pcs)/iu;
-const PRICE_HINT = /(price|rate|daam|dam|mulya|rupee|rupaye|rupees|rs)/iu;
+const QUANTITY_UNIT_HINT =
+  /(quantity|qty|matra|kilo|kilogram|kg|gram|litre|liter|ltr|peti|box|bori|dhabba|dabba|piece|pcs|मात्रा|किलो|ग्राम|लीटर|पेटी|बोरी|डिब्बा|डब्बा|ਕਵਾਂਟਿਟੀ|ਮਾਤਰਾ|ਕਿਲੋ|ਕਿੱਲੋ|ਗ੍ਰਾਮ|ਲੀਟਰ|ਪੇਟੀ|ਬੋਰੀ|ਡੱਬਾ)/iu;
+const CORRECTION_VERB_HINT =
+  /(kar\s*de|kardo|badal\s*de|rakh\s*de|कर\s*दे|करदो|बदल\s*दे|रख\s*दे|ਕਰ\s*ਦੇ|ਕਰਦੋ|ਬਦਲ\s*ਦੇ|ਰੱਖ\s*ਦੇ)/iu;
+const PRICE_HINT =
+  /(price|rate|daam|dam|mulya|rupee|rupaye|rupees|rs|कीमत|दाम|रेट|रुपये|ਕੀਮਤ|ਦਾਮ|ਰੇਟ|ਰੁਪਏ)/iu;
 const UNIT_HINT =
-  /(kilo|kilogram|kg|gram|litre|liter|ltr|peti|box|piece|pcs|dozen|darjan)/iu;
+  /(kilogram|kilo|kg|gram|litre|liter|ltr|peti|box|bori|sack|dhabba|dabba|tin|piece|pcs|dozen|darjan|किलो|ग्राम|लीटर|पेटी|बोरी|डिब्बा|डब्बा|ਕਿਲੋ|ਕਿੱਲੋ|ਗ੍ਰਾਮ|ਲੀਟਰ|ਪੇਟੀ|ਬੋਰੀ|ਡੱਬਾ)/iu;
+const CUSTOMER_HINT =
+  /(customer|grahak|gahak|naam|name|ग्राहक|नाम|ਗ੍ਰਾਹਕ|ਨਾਮ)/iu;
+const READBACK_QUERY =
+  /(?:\b(?:kul|total)\b[\s\S]{0,24}\b(?:kinne|kitne|dasso|dass|batao|bata|hoye)\b|\b(?:kinne|kitne)\s+(?:rupaye|rupees)\b|\b(?:total|kul)\s+(?:dasso|batao|bata)\b|ਕੁੱਲ|ਕਿੰਨੇ|ਰੁਪਏ|ਦੱਸੋ|कुल|कितने|रुपये|बताओ|दस्सो)/iu;
+
+const KG_UNITS = new Set(['kilogram', 'kilo', 'kg', 'किलो', 'ਕਿਲੋ', 'ਕਿੱਲੋ']);
+const GRAM_UNITS = new Set(['gram', 'g', 'ग्राम', 'ਗ੍ਰਾਮ']);
+const LITRE_UNITS = new Set(['litre', 'liter', 'ltr', 'लीटर', 'ਲੀਟਰ']);
+const BOX_UNITS = new Set(['peti', 'box', 'पेटी', 'ਪੇਟੀ']);
+const SACK_UNITS = new Set(['bori', 'sack', 'बोरी', 'ਬੋਰੀ']);
+const TIN_UNITS = new Set(['dhabba', 'dabba', 'tin', 'डिब्बा', 'डब्बा', 'ਡੱਬਾ']);
 
 function findNumber(text: string): number | null {
   const digitMatch = text.match(/\d+(?:[.,]\d+)?/);
@@ -57,7 +97,7 @@ function findNumber(text: string): number | null {
     return Number(digitMatch[0].replace(',', '.'));
   }
 
-  const tokens = text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+  const tokens = text.toLowerCase().split(/[^\p{L}\p{N}\p{M}]+/u);
   for (const token of tokens) {
     if (token in NUMBER_WORDS) {
       return NUMBER_WORDS[token];
@@ -81,10 +121,12 @@ function extractUnit(text: string): string | null {
   if (!match) return null;
 
   const unit = match[0].toLowerCase();
-  if (unit === 'kilo' || unit === 'kilogram' || unit === 'kg') return 'kg';
-  if (unit === 'gram') return 'g';
-  if (unit === 'litre' || unit === 'liter' || unit === 'ltr') return 'l';
-  if (unit === 'peti' || unit === 'box') return 'box';
+  if (KG_UNITS.has(unit)) return 'kg';
+  if (GRAM_UNITS.has(unit)) return 'g';
+  if (LITRE_UNITS.has(unit)) return 'l';
+  if (BOX_UNITS.has(unit)) return 'Box';
+  if (SACK_UNITS.has(unit)) return 'Sack';
+  if (TIN_UNITS.has(unit)) return 'Tin';
   if (unit === 'piece' || unit === 'pcs') return 'pc';
   if (unit === 'dozen' || unit === 'darjan') return 'dozen';
   return unit;
@@ -92,16 +134,21 @@ function extractUnit(text: string): string | null {
 
 function extractCustomerName(text: string): string | null {
   const nameMatch =
-    /(?:naam|name)\s*(?:da|ka|di|is|hai|:)?\s*([\p{L}][\p{L}\s.'-]{0,40})/iu.exec(text);
-  const customerMatch = /(?:customer|grahak)\s+(?:da\s+naam\s+)?([\p{L}][\p{L}\s.'-]{0,40})/iu.exec(
-    text
-  );
+    /(?:naam|name|नाम|ਨਾਮ)\s*(?:da|ka|di|is|hai|का|की|के|ਦਾ|ਦੀ|ਦੇ|है|ਹੈ|:)?\s*([\p{L}][\p{L}\p{M}\s.'-]{0,40})/iu.exec(
+      text
+    );
+  const customerMatch =
+    /(?:customer|grahak|gahak|ग्राहक|ਗ੍ਰਾਹਕ)\s+(?:(?:da|ka|di|का|की|के|ਦਾ|ਦੀ|ਦੇ)\s+)?(?:(?:naam|name|नाम|ਨਾਮ)\s*)?([\p{L}][\p{L}\p{M}\s.'-]{0,40})/iu.exec(
+      text
+    );
 
   const raw = nameMatch?.[1] ?? customerMatch?.[1];
   if (!raw) return null;
 
   const cleaned = raw
-    .split(/\s+(?:hai|is|ha|aa|da|ka|di|te|nu)\b/iu)[0]
+    .split(
+      /\s+(?:hai|is|ha|aa|da|ka|di|te|nu|है|हैं|का|की|के|ਦਾ|ਦੀ|ਦੇ|ਨੂੰ|ਤੇ)(?=\s|$)/iu
+    )[0]
     .replace(/[.,!?;:]+$/u, '')
     .trim();
 
@@ -120,8 +167,11 @@ function selectItemIndex(
 
   const lower = transcript.toLowerCase();
   const index = bill.items.findIndex((item) => {
-    const firstWord = item.description.split(/\s+/)[0]?.toLowerCase();
-    return firstWord !== undefined && lower.includes(firstWord);
+    const words = item.description
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}\p{M}]+/u)
+      .filter((word) => word.length > 2);
+    return words.some((word) => lower.includes(word));
   });
 
   return index >= 0 ? index : 0;
@@ -152,8 +202,8 @@ function originalValue(value: string | number | null): string | null {
 }
 
 /**
- * Deterministic correction parser for demo transcripts. No external LLM is
- * required; failures simply return the unchanged bill plus a warning.
+ * Deterministic multilingual correction parser. It covers Romanised and native
+ * Gurmukhi/Devanagari shorthand without requiring an external LLM.
  */
 export function applyVoiceCorrection(
   transcript: string,
@@ -175,11 +225,27 @@ export function applyVoiceCorrection(
     };
   }
 
+  // Read-back phrases may share an utterance with a correction; a pure query
+  // simply falls through without any mutations below.
+  const isReadBackQuery = READBACK_QUERY.test(text);
+
   const itemIndex = selectItemIndex(next, text, targetItemId);
   const item = next.items[itemIndex];
+  const hasExplicitPriceIntent =
+    /(price|rate|daam|mulya|कीमत|दाम|रेट|ਕੀਮਤ|ਦਾਮ|ਰੇਟ)/iu.test(text);
+  const hasPriceIntent =
+    hasExplicitPriceIntent || (!isReadBackQuery && PRICE_HINT.test(text));
+  const hasQuantityUnitIntent = QUANTITY_UNIT_HINT.test(text);
+  const hasQuantityIntent =
+    hasQuantityUnitIntent ||
+    (!hasPriceIntent && CORRECTION_VERB_HINT.test(text));
 
-  if (QUANTITY_HINT.test(text)) {
-    const quantity = findNumberNear(text, QUANTITY_HINT);
+  if (hasQuantityIntent) {
+    const quantity = findNumberNear(
+      text,
+      hasQuantityUnitIntent ? QUANTITY_UNIT_HINT : CORRECTION_VERB_HINT
+    );
+
     if (quantity !== null && item) {
       corrections.push({
         field: `items[${itemIndex}].quantity`,
@@ -189,8 +255,20 @@ export function applyVoiceCorrection(
       });
 
       item.quantity = quantity;
+
       const unit = extractUnit(text);
-      if (unit) item.unit = unit;
+      if (unit) {
+        if (unit !== item.unit) {
+          corrections.push({
+            field: `items[${itemIndex}].unit`,
+            itemId: item.id,
+            originalValue: originalValue(item.unit),
+            correctedValue: unit
+          });
+        }
+        item.unit = unit;
+      }
+
       item.reviewStatus = 'corrected';
 
       if (item.unitPrice !== null) {
@@ -199,7 +277,7 @@ export function applyVoiceCorrection(
     }
   }
 
-  if (PRICE_HINT.test(text)) {
+  if (hasPriceIntent) {
     const price = findNumberNear(text, PRICE_HINT);
     if (price !== null && item) {
       corrections.push({
@@ -218,7 +296,7 @@ export function applyVoiceCorrection(
     }
   }
 
-  if (/(customer|grahak|naam|name)/iu.test(text)) {
+  if (CUSTOMER_HINT.test(text)) {
     const customerName = extractCustomerName(text);
     if (customerName) {
       corrections.push({
@@ -235,7 +313,7 @@ export function applyVoiceCorrection(
     }
   }
 
-  if (corrections.length === 0) {
+  if (corrections.length === 0 && !isReadBackQuery) {
     warnings.push('No supported correction found in the transcript; bill left unchanged.');
   }
 

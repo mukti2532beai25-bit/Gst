@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -7,6 +8,10 @@ import { applyVoiceCorrection, buildReadBack } from './services/whisperflow';
 import { applyManualCorrection } from './services/corrections';
 import { addVocabulary, listVocabulary } from './services/vocabulary';
 import { getNormalization } from './services/normalization';
+import {
+  isSupportedAudioFile,
+  transcribeAudio
+} from './services/transcription';
 
 const app = express();
 app.use(cors());
@@ -81,6 +86,61 @@ app.post('/api/bills/:id/corrections/voice', upload.any(), (req, res) => {
 
   res.json(applyVoiceCorrection(transcript, bill, targetItemId));
 });
+
+/**
+ * Fallback for mobile browsers that do not expose the Web Speech API. The
+ * recording is sent to a Whisper-compatible endpoint when configured; otherwise
+ * the filename or an explicit fallback transcript keeps the demo usable.
+ */
+app.post(
+  '/api/bills/:id/corrections/voice-file',
+  upload.any(),
+  async (req, res, next) => {
+    try {
+      const file = firstUploadedFile(req);
+
+      if (!file) {
+        res.status(400).json({ error: 'Audio file is required.' });
+        return;
+      }
+
+      if (!isSupportedAudioFile(file.originalname, file.mimetype)) {
+        res.status(400).json({
+          error: 'Unsupported audio format. Upload a .wav, .webm or .m4a file.'
+        });
+        return;
+      }
+
+      const bill = getBill(req.params.id);
+      const outcome = await transcribeAudio({
+        buffer: file.buffer,
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        language: parseLanguage(req.body?.language) ?? bill.language,
+        fallbackTranscript:
+          readString(req.body?.transcript) ??
+          readString(req.body?.fallbackTranscript)
+      });
+
+      const result = applyVoiceCorrection(
+        outcome.transcript,
+        bill,
+        readString(req.body?.itemId)
+      );
+
+      res.json({
+        ...result,
+        warnings: outcome.warning
+          ? [outcome.warning, ...result.warnings]
+          : result.warnings,
+        transcript: outcome.transcript,
+        transcriptionSource: outcome.source
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 app.post('/api/bills/:id/corrections', (req, res) => {
   const bill = getBill(req.params.id);
