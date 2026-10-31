@@ -24,7 +24,10 @@ interface WhisperFlowModalProps {
   isOpen: boolean;
   onClose: () => void;
   billId: string;
-  onCorrectionApplied: (updatedBill: BillExtractionResponse) => void;
+  onCorrectionApplied: (
+    updatedBill: BillExtractionResponse,
+    transcript?: string
+  ) => void;
   currentLanguage: WhisperLanguage;
 }
 
@@ -51,14 +54,19 @@ export default function WhisperFlowModal({
 
   const [manualText, setManualText] = useState('');
   const onCorrectionAppliedRef = useRef(onCorrectionApplied);
+  const transcriptRef = useRef(transcript);
 
   useEffect(() => {
     onCorrectionAppliedRef.current = onCorrectionApplied;
   }, [onCorrectionApplied]);
 
   useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
     if (bill) {
-      onCorrectionAppliedRef.current(bill);
+      onCorrectionAppliedRef.current(bill, transcriptRef.current);
     }
   }, [bill]);
 
