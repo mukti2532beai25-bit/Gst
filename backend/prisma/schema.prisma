@@ -1,0 +1,104 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Business {
+  id                 String              @id @default(uuid())
+  name               String
+  preferredLanguage  String              @default("hi")
+  createdAt          DateTime            @default(now())
+  customers          Customer[]
+  products           Product[]
+  bills              Bill[]
+  vocabularyMappings VocabularyMapping[]
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  name       String
+  contact    String?
+  bills      Bill[]
+  createdAt  DateTime @default(now())
+}
+
+model Product {
+  id          String     @id @default(uuid())
+  businessId  String
+  business    Business   @relation(fields: [businessId], references: [id])
+  name        String
+  defaultUnit String?
+  billItems   BillItem[]
+  createdAt   DateTime   @default(now())
+}
+
+model Bill {
+  id             String          @id @default(uuid())
+  businessId     String
+  business       Business        @relation(fields: [businessId], references: [id])
+  customerId     String?
+  customer       Customer?       @relation(fields: [customerId], references: [id])
+  billNumber     String?
+  billDate       DateTime?
+  subtotal       Decimal?        @db.Decimal(12, 2)
+  taxTotal       Decimal?        @db.Decimal(12, 2)
+  grandTotal     Decimal?        @db.Decimal(12, 2)
+  sourceImageUrl String?
+  status         String          @default("draft")
+  createdAt      DateTime        @default(now())
+  items          BillItem[]
+  corrections    Correction[]
+  processingJobs ProcessingJob[]
+}
+
+model BillItem {
+  id                        String   @id @default(uuid())
+  billId                    String
+  bill                      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  productId                 String?
+  product                   Product? @relation(fields: [productId], references: [id])
+  itemDescriptionSnapshot   String
+  quantity                  Decimal? @db.Decimal(10, 2)
+  unit                      String?
+  unitPriceAtTransaction    Decimal? @db.Decimal(10, 2)
+  lineTotal                 Decimal? @db.Decimal(12, 2)
+  reviewStatus              String   @default("pending")
+}
+
+model VocabularyMapping {
+  id                  String   @id @default(uuid())
+  businessId          String
+  business            Business @relation(fields: [businessId], references: [id])
+  spokenOrWrittenTerm String
+  canonicalValue      String
+  valueType           String
+  confirmedByUser     Boolean  @default(false)
+  createdAt           DateTime @default(now())
+}
+
+model Correction {
+  id               String   @id @default(uuid())
+  billId           String
+  bill             Bill     @relation(fields: [billId], references: [id])
+  fieldName        String
+  originalValue    String?
+  correctedValue   String
+  correctionSource String
+  createdAt        DateTime @default(now())
+}
+
+model ProcessingJob {
+  id           String   @id @default(uuid())
+  billId       String
+  bill         Bill     @relation(fields: [billId], references: [id])
+  stage        String
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
+}
